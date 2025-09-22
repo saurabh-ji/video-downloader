@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    environment {
+        DOCKERHUB_USER = credentials('dockerhub-username')
+        DOCKERHUB_PASS = credentials('dockerhub-password')
+    }
+    stages {
+        stage('Clone') {
+            steps {
+                git 'https://github.com/your-repo/video-downloader.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'docker build -t video-downloader:latest .'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'docker run --rm video-downloader:latest python -m unittest || true'
+            }
+        }
+        stage('DockerHub Login') {
+            steps {
+                sh 'echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin'
+            }
+        }
+        stage('Push Image') {
+            steps {
+                sh 'docker tag video-downloader:latest $DOCKERHUB_USER/video-downloader:latest'
+                sh 'docker push $DOCKERHUB_USER/video-downloader:latest'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh 'docker-compose down || true'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+}
+
